@@ -371,6 +371,7 @@ public final class SqlEmailGenerator {
      * generate an email stating no feedback sessions found.
      */
     public EmailWrapper generateSessionLinksRecoveryEmailForStudent(String recoveryEmailAddress) {
+        /////// DB CALL HERE ////////
         List<Student> studentsForEmail = usersLogic.getAllStudentsForEmail(recoveryEmailAddress);
 
         if (studentsForEmail.isEmpty()) {
@@ -398,10 +399,41 @@ public final class SqlEmailGenerator {
     private EmailWrapper generateSessionLinksRecoveryEmailForExistingStudent(String recoveryEmailAddress,
             List<Student> studentsForEmail) {
         String emailBody;
+        /// TODO FIGURE OUT
+        String studentName = null;
 
+        StringBuilder linkFragment = generateLinkFragment(recoveryEmailAddress, studentsForEmail);
+        var recoveryUrl = Config.getFrontEndAppUrl(Const.WebPageURIs.SESSIONS_LINK_RECOVERY_PAGE).toAbsoluteString();
+
+        if (linkFragment.length() == 0) {
+                emailBody = Templates.populateTemplate(
+                        EmailTemplates.SESSION_LINKS_RECOVERY_ACCESS_LINKS_NONE,
+                        "${teammateHomePageLink}", Config.getFrontEndAppUrl("/").toAbsoluteString(),
+                        "${userEmail}", SanitizationHelper.sanitizeForHtml(recoveryEmailAddress),
+                        "${supportEmail}", Config.SUPPORT_EMAIL,
+                        "${sessionsRecoveryLink}", recoveryUrl);
+        } else {
+                emailBody = Templates.populateTemplate(
+                        EmailTemplates.SESSION_LINKS_RECOVERY_ACCESS_LINKS,
+                        "${userName}", SanitizationHelper.sanitizeForHtml(studentName),
+                        "${linksFragment}", linkFragment.toString(),
+                        "${userEmail}", SanitizationHelper.sanitizeForHtml(recoveryEmailAddress),
+                        "${teammateHomePageLink}", Config.getFrontEndAppUrl("/").toAbsoluteString(),
+                        "${supportEmail}", Config.SUPPORT_EMAIL,
+                        "${sessionsRecoveryLink}", recoveryUrl);
+        }
+
+        var email = getEmptyEmailAddressedToEmail(recoveryEmailAddress);
+        email.setType(EmailType.SESSION_LINKS_RECOVERY);
+        email.setSubjectFromType();
+        email.setContent(emailBody);
+        return email;
+    }
+
+    private StringBuilder generateLinkFragment(String recoveryEmailAddress, List<Student> studentsForEmail) {
         Instant searchStartTime = TimeHelper.getInstantDaysOffsetBeforeNow(SESSION_LINK_RECOVERY_DURATION_IN_DAYS);
         Map<String, StringBuilder> linkFragmentsMap = new HashMap<>();
-        String studentName = null;
+        // Generate course fragment -> combine them
 
         for (var student : studentsForEmail) {
             RequestTracer.checkRemainingTime();
@@ -417,8 +449,7 @@ public final class SqlEmailGenerator {
                 linksFragmentValue = new StringBuilder(5000);
             }
 
-            studentName = student.getName();
-
+            /////// DB CALL HERE ////////
             for (var session : fsLogic.getFeedbackSessionsForCourseStartingAfter(courseId, searchStartTime)) {
                 RequestTracer.checkRemainingTime();
                 var submitUrlHtml = "";
@@ -456,38 +487,20 @@ public final class SqlEmailGenerator {
             }
         }
 
-        var recoveryUrl = Config.getFrontEndAppUrl(Const.WebPageURIs.SESSIONS_LINK_RECOVERY_PAGE).toAbsoluteString();
         if (linkFragmentsMap.isEmpty()) {
-            emailBody = Templates.populateTemplate(
-                    EmailTemplates.SESSION_LINKS_RECOVERY_ACCESS_LINKS_NONE,
-                    "${teammateHomePageLink}", Config.getFrontEndAppUrl("/").toAbsoluteString(),
-                    "${userEmail}", SanitizationHelper.sanitizeForHtml(recoveryEmailAddress),
-                    "${supportEmail}", Config.SUPPORT_EMAIL,
-                    "${sessionsRecoveryLink}", recoveryUrl);
+                return new StringBuilder(10000);
         } else {
             var courseFragments = new StringBuilder(10000);
             linkFragmentsMap.forEach((courseId, linksFragments) -> {
                 String courseBody = Templates.populateTemplate(
                         EmailTemplates.FRAGMENT_SESSION_LINKS_RECOVERY_ACCESS_LINKS_BY_COURSE,
                         "${sessionFragment}", linksFragments.toString(),
-                        "${courseName}", coursesLogic.getCourse(courseId).getName());
+                /////// DB CALL HERE ////////
+                        "${courseName}", coursesLogic.getCourse(courseId).getName()); 
                 courseFragments.append(courseBody);
             });
-            emailBody = Templates.populateTemplate(
-                    EmailTemplates.SESSION_LINKS_RECOVERY_ACCESS_LINKS,
-                    "${userName}", SanitizationHelper.sanitizeForHtml(studentName),
-                    "${linksFragment}", courseFragments.toString(),
-                    "${userEmail}", SanitizationHelper.sanitizeForHtml(recoveryEmailAddress),
-                    "${teammateHomePageLink}", Config.getFrontEndAppUrl("/").toAbsoluteString(),
-                    "${supportEmail}", Config.SUPPORT_EMAIL,
-                    "${sessionsRecoveryLink}", recoveryUrl);
+            return courseFragments;
         }
-
-        var email = getEmptyEmailAddressedToEmail(recoveryEmailAddress);
-        email.setType(EmailType.SESSION_LINKS_RECOVERY);
-        email.setSubjectFromType();
-        email.setContent(emailBody);
-        return email;
     }
 
     /**
