@@ -134,8 +134,7 @@ public class DataMigrationForCourseEntitySql extends DatastoreClient {
         flushEntitiesSavingBuffer();
 
         if (!verifier.equals(newCourse, oldCourse)) {
-            logError("Verification failed for course with id: " + oldCourse.getUniqueId());
-            return;
+            throw new Exception("Verification failed for course with id: " + oldCourse.getUniqueId());
         }
 
         // TODO: markOldCourseAsMigrated(courseId)
@@ -675,7 +674,14 @@ public class DataMigrationForCourseEntitySql extends DatastoreClient {
 
             while (currentOldCourse != null) {
                 shouldContinue = true;
-                doMigration(currentOldCourse);
+                try {
+                    doMigration(currentOldCourse);
+                } catch (Exception e) {
+                    logError("Problem migrating entity " + currentOldCourse.getUniqueId());
+                    e.printStackTrace();
+                    logError(e.getMessage());
+                    return;
+                }
                 numberOfScannedKey.incrementAndGet();
 
                 cursor = iterator.getCursorAfter();
@@ -755,18 +761,13 @@ public class DataMigrationForCourseEntitySql extends DatastoreClient {
     /**
      * Migrates the entity and counts the statistics.
      */
-    private void doMigration(Course entity) {
-        try {
-            numberOfAffectedEntities.incrementAndGet();
-            if (!isPreview()) {
-                migrateCourse(entity);
-                numberOfUpdatedEntities.incrementAndGet();
-            }
-        } catch (Exception e) {
-            logError("Problem migrating entity " + entity);
-            e.printStackTrace();
-            logError(e.getMessage());
+    private void doMigration(Course entity) throws Exception {
+        numberOfAffectedEntities.incrementAndGet();
+        if (!isPreview()) {
+            migrateCourse(entity);
+            numberOfUpdatedEntities.incrementAndGet();
         }
+            
     }
 
     /**

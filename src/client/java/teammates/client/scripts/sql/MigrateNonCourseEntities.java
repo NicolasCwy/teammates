@@ -8,9 +8,9 @@ public class MigrateNonCourseEntities {
 
     public static void main(String[] args) {
         try {
-            DataMigrationForNotificationSql.main(args);
-            DataMigrationForUsageStatisticsSql.main(args);
-            DataMigrationForAccountRequestSql.main(args);
+            // DataMigrationForNotificationSql.main(args);
+            // DataMigrationForUsageStatisticsSql.main(args);
+            // DataMigrationForAccountRequestSql.main(args);
             DataMigrationForAccountAndReadNotificationSql.main(args);
         } catch (Exception e) {
             System.out.println(e);

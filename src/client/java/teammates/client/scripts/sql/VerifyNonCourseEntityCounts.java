@@ -2,8 +2,12 @@ package teammates.client.scripts.sql;
 
 // CHECKSTYLE.OFF:ImportOrder
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import com.beust.ah.A;
 import com.google.cloud.datastore.QueryResults;
 import com.googlecode.objectify.cmd.Query;
 
@@ -99,5 +103,27 @@ public class VerifyNonCourseEntityCounts extends DatastoreClient {
         // Read notification did not have its own entity in datastore, therefore has to
         // be counted differently
         verifyReadNotification();
+
+        // Get objectify names and compare with postgres names
+        Set<String> datastoreAccounts = new HashSet<String>();
+        for (Account acc : ofy().load().type(Account.class).list()) {
+            datastoreAccounts.add(acc.getGoogleId());
+        }
+
+        
+
+        HibernateUtil.beginTransaction();
+        Set<String> postgresAccounts = new HashSet<String>();
+        CriteriaBuilder cb = HibernateUtil.getCriteriaBuilder();
+        CriteriaQuery<teammates.storage.sqlentity.Account> cr = 
+            cb.createQuery(teammates.storage.sqlentity.Account.class);
+        Root<teammates.storage.sqlentity.Account> accRoot = cr.from(teammates.storage.sqlentity.Account.class);
+        
+        for (teammates.storage.sqlentity.Account acc : HibernateUtil.createQuery(cr.select(accRoot)).getResultList()) {
+            postgresAccounts.add(acc.getGoogleId());
+        }
+        datastoreAccounts.removeAll(postgresAccounts);
+        System.out.println(datastoreAccounts);
+        HibernateUtil.commitTransaction();
     }
 }
